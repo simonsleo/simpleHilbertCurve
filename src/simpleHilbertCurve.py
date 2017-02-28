@@ -3,29 +3,29 @@
 simpleHilbertCurve
 dent earl, dent.earl (a) gmail dot com
 
-**simpleHilbertCurve** is a Python script that uses matplotlib to create 
-[Hilbert curve](http://en.wikipedia.org/wiki/Hilbert_curve) plots. Hilbert 
-curves are space filling fractals that can be used to map a one dimensional 
-set into two dimensions. Hilbert curves mostly maintain locality meaning 
-that clusters in the 2D representation are most likely close together in 
-the 1D scale too. Hilbert curves can be a useful way of visualy summarizing 
+**simpleHilbertCurve** is a Python script that uses matplotlib to create
+[Hilbert curve](http://en.wikipedia.org/wiki/Hilbert_curve) plots. Hilbert
+curves are space filling fractals that can be used to map a one dimensional
+set into two dimensions. Hilbert curves mostly maintain locality meaning
+that clusters in the 2D representation are most likely close together in
+the 1D scale too. Hilbert curves can be a useful way of visualy summarizing
 and comparing large time series or large linear maps (like genomic data).
 
 """
 ##############################
-# Copyright (C) 2009-2011 by 
+# Copyright (C) 2009-2011 by
 # Dent Earl (dearl@soe.ucsc.edu, dent.earl@gmail.com)
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -94,10 +94,10 @@ def checkOptions(options, args, parser):
     if options.level < 1:
         parser.error('--level must by greater than 0')
     if options.level > 8 and not options.override:
-        parser.error('--level > 8 and --override not engaged. (2^%d)^2 is a big number.' 
+        parser.error('--level > 8 and --override not engaged. (2^%d)^2 is a big number.'
                      % options.level)
     if options.cmap not in colorMaps:
-        parser.error('--cmap %s not a valid option. Pick from %s' 
+        parser.error('--cmap %s not a valid option. Pick from %s'
                      % (options.cmap, ', '.join(colorMaps)))
     if len(args) > 0:
         for a in args:
@@ -106,9 +106,9 @@ def checkOptions(options, args, parser):
     if options.dpi < 72:
         parser.error('--dpi %d less than screen res, 72. Must be >= 72.' % options.dpi)
     if options.outFormat not in ('pdf', 'png', 'eps', 'all'):
-        parser.error('Unrecognized output format: %s. Choose one from: pdf png eps all.' 
+        parser.error('Unrecognized output format: %s. Choose one from: pdf png eps all.'
                      % options.outFormat)
-    if (options.out.endswith('.png') or options.out.endswith('.pdf') or 
+    if (options.out.endswith('.png') or options.out.endswith('.pdf') or
         options.out.endswith('.eps')):
         options.out = options.out[:-4]
 
@@ -117,6 +117,8 @@ def initImage(width, height, options):
     initImage takes a width and height and returns
     both a fig and pdf object. options must contain outFormat,
     and dpi
+    ----------------------------------------------------------
+    where to set dpi? @LSQ
     """
     pdf = None
     if options.outFormat == 'pdf' or options.outFormat == 'all':
@@ -154,10 +156,14 @@ def writeImage(fig, pdf, options):
 
 def processFile(filename, options):
     """
-    read in the input and return the corresponding matrix 
+    read in the input and return the corresponding matrix
     input is two column, whitespace separated data. col1 is
-    a position along the scale and col2 is a value. 
+    a position along the scale and col2 is a value.
+    ------------------------------------------------------
+    read time-series file as input data @LSQ
     """
+
+    #x<<y, This is the same as multiplying x by 2**y.
     n = 1 << options.level
     m = numpy.zeros((n, n))
     x = []
@@ -180,7 +186,9 @@ def processFile(filename, options):
         y -= numpy.average(y)
         y /= numpy.std(y)
     for i in xrange(0, len(x)):
-        c, r = d2xy(n, int(round((n**2 - 1) * x[i] / options.max)))
+        c, r = d2xy(n, int(round((n**2 - 1) * x[i] / options.max))) #find the
+        #cooresponding element matrix[][] of xi,yi. It's better to further treat
+        # x  with average,make the intervals of x equal @LSQ
         m[r][c] += y[i]
     return m
 
@@ -192,17 +200,36 @@ def drawData(ax, data, options):
         plt.pcolor(data, cmap=plt.get_cmap(options.cmap))
     ax.set_xticks([])
     ax.set_yticks([])
-    
+
 ########################################
-# These functions refactored from those available at 
+"""
+ B__ __ __ __C
+ |           |
+ |           |
+ |           |
+A|__ __ __ __|D
+ We could define 12 block operators,d2xy_bc,d2xy_cb,d2xy_ab,
+ d2xy_ba,d2xy_ad,d2xy_da,d2xy_cd,d2xy_dc,d2xy_ac,d2xy_ca,
+ d2xy_bd,d2xy_db
+@LSQ
+"""
+# These functions refactored from those available at
 # wikipedia for Hilbert curves http://en.wikipedia.org/wiki/Hilbert_curve
 def d2xy(n, d):
+    #    This function actually is d2xy_bc @LSQ
     """
     take a d value in [0, n**2 - 1] and map it to
     an x, y value (e.g. c, r).
+    --n is 2**options.level @LSQ
     """
     assert(d <= n**2 - 1)
     t = d
+
+    """
+    there are nine operators in HC,and the starting point
+    could be set in order for the current block to connect
+     to the previous block @LSQ
+    """
     x = y = 0
     s = 1
     while (s < n):
@@ -284,7 +311,7 @@ def main():
     initOptions(parser)
     options, args = parser.parse_args()
     checkOptions(options, args, parser)
-    
+
     if len(args) == 0 and not options.demo:
         genericCurve(options)
     else:
